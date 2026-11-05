@@ -1,4 +1,5 @@
 
+from hand_features import normalize_landmarks
 import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
@@ -27,7 +28,8 @@ def main():
         print("无法打开摄像头，请检查摄像头连接")
         return
 
-    print("Universal Gesture AI started. Press Q to exit.")
+    print("Universal Gesture AI started.")
+    print("Press Q to exit.")
 
     try:
         with vision.HandLandmarker.create_from_options(options) as detector:
@@ -96,9 +98,8 @@ def main():
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
-    finally:
-        cap.release()
-        cv2.destroyAllWindows()
+    cap.release()
+    cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
