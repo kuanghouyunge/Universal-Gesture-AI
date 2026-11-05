@@ -57,6 +57,13 @@ def main():
                     for i, landmarks in enumerate(results.hand_landmarks):
                         points = []
                         h, w, _ = frame.shape
+                        features = normalize_landmarks(landmarks)
+
+                        print(
+                             f"Hand {i + 1} | "
+                             f"Feature shape: {features.shape} | "
+                              f"First 6 values: {features[:6]}"
+                        )
 
                         for landmark in landmarks:
                             x = int(landmark.x * w)
@@ -72,6 +79,12 @@ def main():
                             cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
 
                         label = results.handedness[i][0].category_name
+
+                        # 当前输入画面经过水平镜像，修正左右手标签
+                        if label == "Left":
+                             label = "Right"
+                        else:
+                             label = "Left"
 
                         cv2.putText(
                             frame,
