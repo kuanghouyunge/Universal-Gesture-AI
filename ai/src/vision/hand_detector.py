@@ -27,99 +27,78 @@ def main():
         print("无法打开摄像头，请检查摄像头连接")
         return
 
-    print("Universal Gesture AI started.")
-    print("Press Q to exit.")
+    print("Universal Gesture AI started. Press Q to exit.")
 
-    with vision.HandLandmarker.create_from_options(options) as detector:
-        frame_timestamp_ms = 0
+    try:
+        with vision.HandLandmarker.create_from_options(options) as detector:
+            timestamp_ms = 0
 
-        while True:
-            success, frame = cap.read()
+            while True:
+                success, frame = cap.read()
 
-            if not success:
-                print("无法读取摄像头画面")
-                break
+                if not success:
+                    print("无法读取摄像头画面")
+                    break
 
-            frame = cv2.flip(frame, 1)
+                frame = cv2.flip(frame, 1)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                mp_image = mp.Image(
+                    image_format=mp.ImageFormat.SRGB,
+                    data=rgb
+                )
 
-            mp_image = mp.Image(
-                image_format=mp.ImageFormat.SRGB,
-                data=rgb
-            )
+                timestamp_ms += 33
+                results = detector.detect_for_video(mp_image, timestamp_ms)
 
-            frame_timestamp_ms += 33
+                if results.hand_landmarks:
+                    for i, landmarks in enumerate(results.hand_landmarks):
+                        points = []
+                        h, w, _ = frame.shape
 
-            results = detector.detect_for_video(
-                mp_image,
-                frame_timestamp_ms
-            )
+                        for landmark in landmarks:
+                            x = int(landmark.x * w)
+                            y = int(landmark.y * h)
+                            points.append((x, y))
 
-            if results.hand_landmarks:
-                for hand_index, landmarks in enumerate(results.hand_landmarks):
+                        for connection in vision.HandLandmarksConnections.HAND_CONNECTIONS:
+                            start = points[connection.start]
+                            end = points[connection.end]
+                            cv2.line(frame, start, end, (255, 0, 0), 2)
 
-                    h, w, _ = frame.shape
+                        for x, y in points:
+                            cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
 
-                    # Draw 21 hand landmarks
-                    points = []
+                        label = results.handedness[i][0].category_name
 
-                    for landmark in landmarks:
-                        x = int(landmark.x * w)
-                        y = int(landmark.y * h)
-
-                        points.append((x, y))
-
-                        cv2.circle(
+                        cv2.putText(
                             frame,
-                            (x, y),
-                            5,
-                            (0, 255, 0),
-                            -1
-                        )
-
-                    # Draw hand connections
-                    for connection in vision.HandLandmarksConnections.HAND_CONNECTIONS:
-                        start = points[connection.start]
-                        end = points[connection.end]
-
-                        cv2.line(
-                            frame,
-                            start,
-                            end,
-                            (255, 0, 0),
+                            label,
+                            (points[0][0], points[0][1] - 20),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.8,
+                            (0, 255, 255),
                             2
                         )
 
-                    # Display handedness
-                    handedness = results.handedness[hand_index][0].category_name
+                        cv2.putText(
+                            frame,
+                            f"Landmarks: {len(points)}",
+                            (20, 40 + i * 35),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (0, 255, 0),
+                            2
+                        )
 
-                    cv2.putText(
-                        frame,
-                        handedness,
-                        (points[0][0], points[0][1] - 20),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.8,
-                        (0, 255, 255),
-                        2
-                    )
+                cv2.imshow("Universal Gesture AI - Hand Detection", frame)
 
-                    print(
-                        f"Hand {hand_index + 1}: {handedness}, "
-                        f"Landmarks: {len(landmarks)}",
-                        end="\r"
-                    )
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
 
-            cv2.imshow(
-                "Universal Gesture AI - Hand Detection",
-                frame
-            )
-
-            if cv2.waitKey(1) & 0xFF == ord("q"):
-                break
-
-    cap.release()
-    cv2.destroyAllWindows()
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
