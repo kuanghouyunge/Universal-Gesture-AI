@@ -1,7 +1,8 @@
 
-from hand_features import normalize_landmarks
+from hand_features import normalize_landmarks, extract_joint_angles
 import cv2
 import mediapipe as mp
+import numpy as np
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
@@ -58,6 +59,10 @@ def main():
                         points = []
                         h, w, _ = frame.shape
                         features = normalize_landmarks(landmarks)
+                        angles = extract_joint_angles(landmarks)
+
+                        print("Feature shape:", features.shape)
+                        print("Joint angles:", np.round(angles, 3))
 
                         print(
                              f"Hand {i + 1} | "
@@ -111,8 +116,9 @@ def main():
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
-    cap.release()
-    cv2.destroyAllWindows()
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
