@@ -6,6 +6,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from src.visualization.hand_visualizer import HandVisualizer
+from src.vision.camera_manager import CameraManager
 
 MODEL_PATH = "models/hand_landmarker.task"
 
@@ -24,10 +25,9 @@ def main():
         min_tracking_confidence=0.6
     )
 
-    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    camera = CameraManager(camera_index=1)
 
-    if not cap.isOpened():
-        print("无法打开摄像头，请检查摄像头连接")
+    if not camera.open():
         return
 
     print("Universal Gesture AI started.")
@@ -44,7 +44,7 @@ def main():
             timestamp_ms = 0
 
             while True:
-                success, frame = cap.read()
+                success, frame = camera.read()
 
                 if not success:
                     print("无法读取摄像头画面")
@@ -102,7 +102,7 @@ def main():
                     break
 
     finally:
-        cap.release()
+        camera.release()
         cv2.destroyAllWindows()
 
 
