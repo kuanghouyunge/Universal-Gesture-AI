@@ -5,6 +5,7 @@ import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+from src.visualization.hand_visualizer import HandVisualizer
 
 MODEL_PATH = "models/hand_landmarker.task"
 
@@ -33,6 +34,10 @@ def main():
     print("Press Q to exit.")
 
     recognizer = GestureRecognizer()
+    
+    visualizer = HandVisualizer(
+        vision.HandLandmarksConnections.HAND_CONNECTIONS
+    )
 
     try:
         with vision.HandLandmarker.create_from_options(options) as detector:
@@ -58,94 +63,38 @@ def main():
 
                 if results.hand_landmarks:
                     for i, landmarks in enumerate(results.hand_landmarks):
-                        points = []
-                        h, w, _ = frame.shape
 
-                        print(
-                            "Handedness:",
-                            results.handedness[i][0].category_name
-                        )
-
+                        # 1. 识别手势
                         result = recognizer.predict(landmarks)
-                        gesture_text = (
-                           f"{result['gesture']} "
-                           f"{result['confidence']:.0%}"
-                        )
-                        hand_label = results.handedness[i][0].category_name
-                        print("当前检测手:", hand_label)
 
-                        print(
-                            "识别结果:",
-                            result["probabilities"]
-                        )
-
+                        # 2. 映射控制指令
                         command = map_gesture_to_command(
                             result["gesture"],
                             result["confidence"]
                         )
 
-                        command_text = f"Command: {command}"
-
-                        for landmark in landmarks:
-                            x = int(landmark.x * w)
-                            y = int(landmark.y * h)
-                            points.append((x, y))
-
-                        cv2.putText(
-                            frame,
-                            gesture_text,
-                            (20, 75),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.7,
-                            (0, 255, 255),
-                            2
-                        )
-
-                        cv2.putText(
-                            frame,
-                            command_text,
-                            (20, 110),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.7,
-                            (255, 255, 0),
-                            2
-                            )
-
-                        for connection in vision.HandLandmarksConnections.HAND_CONNECTIONS:
-                            start = points[connection.start]
-                            end = points[connection.end]
-                            cv2.line(frame, start, end, (255, 0, 0), 2)
-
-                        for x, y in points:
-                            cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
-
+                        # 3. 获取左右手标签
                         label = results.handedness[i][0].category_name
 
-                        # 当前输入画面经过水平镜像，修正左右手标签
                         if label == "Left":
-                             label = "Right"
+                            label = "Right"
                         else:
-                             label = "Left"
+                            label = "Left"
 
-                        cv2.putText(
-                            frame,
-                            label,
-                            (points[0][0], points[0][1] - 20),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.8,
-                            (0, 255, 255),
-                            2
+                        # 4. 绘制手部信息
+                        frame = visualizer.draw_hand(
+                            frame=frame,
+                            landmarks=landmarks,
+                            handedness=label,
+                            gesture=result["gesture"],
+                            confidence=result["confidence"],
+                            command=command,
+                            hand_index=i,
                         )
 
-                        cv2.putText(
-                            frame,
-                            f"Landmarks: {len(points)}",
-                            (20, 40 + i * 35),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.7,
-                            (0, 255, 0),
-                            2
-                        )
+                        # 5. 输出调试信息
+                        print("当前检测手:", label)
+                        print("识别结果:", result["probabilities"])
 
                 cv2.imshow("Universal Gesture AI - Hand Detection", frame)
 
