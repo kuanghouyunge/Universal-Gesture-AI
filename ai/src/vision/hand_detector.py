@@ -3,28 +3,14 @@ from src.control.gesture_commands import map_gesture_to_command
 from src.recognition.gesture_recognizer import GestureRecognizer
 import cv2
 import mediapipe as mp
-from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from src.visualization.hand_visualizer import HandVisualizer
 from src.vision.camera_manager import CameraManager
+from src.vision.hand_landmarker import HandLandmarker
 
-MODEL_PATH = "models/hand_landmarker.task"
 
 
 def main():
-    base_options = python.BaseOptions(
-        model_asset_path=MODEL_PATH
-    )
-
-    options = vision.HandLandmarkerOptions(
-        base_options=base_options,
-        running_mode=vision.RunningMode.VIDEO,
-        num_hands=2,
-        min_hand_detection_confidence=0.6,
-        min_hand_presence_confidence=0.6,
-        min_tracking_confidence=0.6
-    )
-
     camera = CameraManager(camera_index=1)
 
     if not camera.open():
@@ -40,8 +26,7 @@ def main():
     )
 
     try:
-        with vision.HandLandmarker.create_from_options(options) as detector:
-            timestamp_ms = 0
+        with HandLandmarker() as detector:
 
             while True:
                 success, frame = camera.read()
@@ -58,9 +43,7 @@ def main():
                     data=rgb
                 )
 
-                timestamp_ms += 33
-                results = detector.detect_for_video(mp_image, timestamp_ms)
-
+                results = detector.detect(mp_image)
                 if results.hand_landmarks:
                     for i, landmarks in enumerate(results.hand_landmarks):
 
