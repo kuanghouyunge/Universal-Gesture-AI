@@ -8,86 +8,111 @@ from src.visualization.hand_visualizer import HandVisualizer
 from src.vision.camera_manager import CameraManager
 from src.vision.hand_landmarker import HandLandmarker
 
+class GestureApp():
+    def __init__(self):
+        self.camera = CameraManager(camera_index=1)
 
+        self.recognizer = GestureRecognizer()
 
-def main():
-    camera = CameraManager(camera_index=1)
+        self.visualizer = HandVisualizer(
+            vision.HandLandmarksConnections.HAND_CONNECTIONS
+        )
 
-    if not camera.open():
-        return
+        self.detector = HandLandmarker()
+    def process_frame(self, frame):
+        # 1. 水平镜像
+        frame = cv2.flip(frame, 1)
 
-    print("Universal Gesture AI started.")
-    print("Press Q to exit.")
+        # 2. 转换颜色空间
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    recognizer = GestureRecognizer()
-    
-    visualizer = HandVisualizer(
-        vision.HandLandmarksConnections.HAND_CONNECTIONS
-    )
+        mp_image = mp.Image(
+            image_format=mp.ImageFormat.SRGB,
+            data=rgb
+        )
 
-    try:
-        with HandLandmarker() as detector:
+        # 3. 检测手部
+        results = self.detector.detect(mp_image)
 
+        # 4. 识别并绘制
+        if results.hand_landmarks:
+            for i, landmarks in enumerate(results.hand_landmarks):
+
+                result = self.recognizer.predict(landmarks)
+
+                command = map_gesture_to_command(
+                    result["gesture"],
+                    result["confidence"]
+                )
+
+                label = results.handedness[i][0].category_name
+
+                if label == "Left":
+                    label = "Right"
+                else:
+                    label = "Left"
+
+                frame = self.visualizer.draw_hand(
+                    frame=frame,
+                    landmarks=landmarks,
+                    handedness=label,
+                    gesture=result["gesture"],
+                    confidence=result["confidence"],
+                    command=command,
+                    hand_index=i,
+                )
+
+                print("当前检测手:", label)
+                print("识别结果:", result["probabilities"])
+
+        return frame
+    def run(self):
+        if not self.camera.open():
+            return
+
+        print("Universal Gesture AI started.")
+        print("Press Q to exit.")
+
+        try:
             while True:
-                success, frame = camera.read()
+                success, frame = self.camera.read()
 
                 if not success:
                     print("无法读取摄像头画面")
                     break
 
-                frame = cv2.flip(frame, 1)
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # 处理当前画面
+                frame = self.process_frame(frame)
 
-                mp_image = mp.Image(
-                    image_format=mp.ImageFormat.SRGB,
-                    data=rgb
+                # 显示画面
+                cv2.imshow(
+                    "Universal Gesture AI - Hand Detection",
+                    frame
                 )
 
-                results = detector.detect(mp_image)
-                if results.hand_landmarks:
-                    for i, landmarks in enumerate(results.hand_landmarks):
-
-                        # 1. 识别手势
-                        result = recognizer.predict(landmarks)
-
-                        # 2. 映射控制指令
-                        command = map_gesture_to_command(
-                            result["gesture"],
-                            result["confidence"]
-                        )
-
-                        # 3. 获取左右手标签
-                        label = results.handedness[i][0].category_name
-
-                        if label == "Left":
-                            label = "Right"
-                        else:
-                            label = "Left"
-
-                        # 4. 绘制手部信息
-                        frame = visualizer.draw_hand(
-                            frame=frame,
-                            landmarks=landmarks,
-                            handedness=label,
-                            gesture=result["gesture"],
-                            confidence=result["confidence"],
-                            command=command,
-                            hand_index=i,
-                        )
-
-                        # 5. 输出调试信息
-                        print("当前检测手:", label)
-                        print("识别结果:", result["probabilities"])
-
-                cv2.imshow("Universal Gesture AI - Hand Detection", frame)
-
+                # 按 Q 退出
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
 
-    finally:
-        camera.release()
+        finally:
+            self.close()
+    def close(self):
+        """释放程序使用的资源。"""
+
+        self.camera.release()
+
+        if self.detector is not None:
+            self.detector.close()
+            self.detector = None
+
         cv2.destroyAllWindows()
 
+        print("Universal Gesture AI stopped.")
 
+def main():
+    app = GestureApp()
+    app.run()
+  
 if __name__ == "__main__":
     main()
+
