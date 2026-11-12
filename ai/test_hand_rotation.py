@@ -24,7 +24,8 @@ options = HandLandmarkerOptions(
     num_hands=2,
 )
 
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+print("摄像头是否打开:", cap.isOpened())
 
 # 当前姿势标签
 pose_label = "front"
@@ -41,7 +42,9 @@ pose_names = {
 with HandLandmarker.create_from_options(options) as detector:
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret:
+
+        if not ret or frame is None:
+            print("画面读取失败")
             break
 
         frame = cv2.flip(frame, 1)
@@ -69,10 +72,15 @@ with HandLandmarker.create_from_options(options) as detector:
                 )
 
                 # 屏蔽每帧的内部调试输出
+                height, width = frame.shape[:2]
+
                 with redirect_stdout(io.StringIO()):
                     raw = normalize_landmarks(landmarks)
                     local = normalize_hand_rotation(
-                        landmarks, handedness
+                        landmarks,
+                        handedness,
+                        width,
+                        height
                     )
 
                 current_samples.append({
@@ -183,5 +191,6 @@ with HandLandmarker.create_from_options(options) as detector:
         elif key == ord("q"):
             break
 
+print("正在释放摄像头")
 cap.release()
 cv2.destroyAllWindows()
