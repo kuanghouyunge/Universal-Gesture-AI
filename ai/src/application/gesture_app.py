@@ -67,13 +67,13 @@ class GestureApp():
 
         return frame
     def run(self):
-        if not self.camera.open():
-            return
-
-        print("Universal Gesture AI started.")
-        print("Press Q to exit.")
-
         try:
+            if not self.camera.open():
+                return
+
+            print("Universal Gesture AI started.")
+            print("Press Q to exit.")
+
             while True:
                 success, frame = self.camera.read()
 
