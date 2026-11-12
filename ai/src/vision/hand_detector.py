@@ -1,8 +1,8 @@
 
-from hand_features import normalize_landmarks, extract_joint_angles
+from src.control.gesture_commands import map_gesture_to_command
+from src.recognition.gesture_recognizer import GestureRecognizer
 import cv2
 import mediapipe as mp
-import numpy as np
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
@@ -23,7 +23,7 @@ def main():
         min_tracking_confidence=0.6
     )
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
     if not cap.isOpened():
         print("无法打开摄像头，请检查摄像头连接")
@@ -31,6 +31,8 @@ def main():
 
     print("Universal Gesture AI started.")
     print("Press Q to exit.")
+
+    recognizer = GestureRecognizer()
 
     try:
         with vision.HandLandmarker.create_from_options(options) as detector:
@@ -58,22 +60,56 @@ def main():
                     for i, landmarks in enumerate(results.hand_landmarks):
                         points = []
                         h, w, _ = frame.shape
-                        features = normalize_landmarks(landmarks)
-                        angles = extract_joint_angles(landmarks)
-
-                        print("Feature shape:", features.shape)
-                        print("Joint angles:", np.round(angles, 3))
 
                         print(
-                             f"Hand {i + 1} | "
-                             f"Feature shape: {features.shape} | "
-                              f"First 6 values: {features[:6]}"
+                            "Handedness:",
+                            results.handedness[i][0].category_name
                         )
+
+                        result = recognizer.predict(landmarks)
+                        gesture_text = (
+                           f"{result['gesture']} "
+                           f"{result['confidence']:.0%}"
+                        )
+                        hand_label = results.handedness[i][0].category_name
+                        print("当前检测手:", hand_label)
+
+                        print(
+                            "识别结果:",
+                            result["probabilities"]
+                        )
+
+                        command = map_gesture_to_command(
+                            result["gesture"],
+                            result["confidence"]
+                        )
+
+                        command_text = f"Command: {command}"
 
                         for landmark in landmarks:
                             x = int(landmark.x * w)
                             y = int(landmark.y * h)
                             points.append((x, y))
+
+                        cv2.putText(
+                            frame,
+                            gesture_text,
+                            (20, 75),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (0, 255, 255),
+                            2
+                        )
+
+                        cv2.putText(
+                            frame,
+                            command_text,
+                            (20, 110),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            0.7,
+                            (255, 255, 0),
+                            2
+                            )
 
                         for connection in vision.HandLandmarksConnections.HAND_CONNECTIONS:
                             start = points[connection.start]

@@ -33,6 +33,98 @@ def normalize_landmarks(landmarks):
     # 展平为 63 维特征
     return points.flatten()
 
+def normalize_hand_rotation(landmarks, handedness, image_width, image_height):
+    """
+    将手部关键点转换到手掌局部坐标系。
+
+    消除平移、尺度和大部分整体旋转影响。
+    输出：63 维特征。
+    """
+
+    points = np.array(
+        [[lm.x, lm.y, lm.z] for lm in landmarks],
+        dtype=np.float32
+    )
+
+    if points.shape != (21, 3):
+        raise ValueError("Expected 21 landmarks with XYZ coordinates")
+
+    # 修正 MediaPipe X/Y 坐标的尺度差异
+    points[:, 1] *= image_height / image_width
+
+    # 以手腕为原点
+    points = points - points[0]
+
+    # 建立手掌纵向轴：手腕 -> 中指 MCP
+    forward = points[9]
+
+    print("手掌纵向向量:", np.round(forward, 3))
+
+    forward_norm = np.linalg.norm(forward)
+    if forward_norm < 1e-6:
+        return np.zeros(63, dtype=np.float32)
+
+    forward = forward / forward_norm
+    # 建立手掌横向轴：小指 MCP -> 食指 MCP
+    side = points[5] - points[17]
+
+    print(
+    "食指到小指方向:",
+    np.round(points[5] - points[17], 3)
+)
+
+    # 去除横向轴在纵向轴上的分量
+    side = side - np.dot(side, forward) * forward
+
+    side_norm = np.linalg.norm(side)
+    if side_norm < 1e-6:
+        return np.zeros(63, dtype=np.float32)
+
+    side = side / side_norm
+
+    # 建立第三个轴
+    normal = np.cross(forward, side)
+    normal_norm = np.linalg.norm(normal)
+
+    print("坐标轴点积:")
+    print("side · forward:", np.dot(side, forward))
+    print("side · normal:", np.dot(side, normal))
+    print("forward · normal:", np.dot(forward, normal))
+
+    if normal_norm < 1e-6:
+        return np.zeros(63, dtype=np.float32)
+
+    normal = normal / normal_norm
+
+    # 统一左右手的法向轴方向
+    if handedness == "Right":
+        normal = -normal
+
+    print(
+    "局部坐标轴:",
+    "side =", np.round(side, 3),
+    "forward =", np.round(forward, 3),
+    "normal =", np.round(normal, 3)
+)
+
+    # 投影到手掌局部坐标系
+    local_points = np.column_stack((
+        np.dot(points, side),
+        np.dot(points, forward),
+        np.dot(points, normal)
+    ))
+
+    # 根据手掌尺寸缩放
+    scale = np.linalg.norm(points[9])
+
+    if scale < 1e-6:
+        return np.zeros(63, dtype=np.float32)
+
+    local_points = local_points / scale
+
+    return local_points.flatten()
+
+
 def extract_joint_angles(landmarks):
     """
     提取五根手指的主要关节角度。

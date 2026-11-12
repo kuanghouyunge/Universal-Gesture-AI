@@ -16,3 +16,8 @@ venv/
 
 # Environment variables
 .env
+# Project generated files
+ai/datasets/
+ai/models/*.pkl
+ai/rotation_samples.csv
+ai/camera_test.py
