@@ -55,7 +55,7 @@ Universal Gesture AI/
 │       ├── sign_language/
 │       ├── vision/
 │       └── visualization/
-├── README.md
+└── README.md
 
 
  5. 环境配置
