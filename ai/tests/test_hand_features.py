@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import pytest
 from types import SimpleNamespace
 
@@ -103,3 +103,66 @@ def test_extract_joint_angles_degenerate():
 def test_extract_joint_angles_invalid_input():
     with pytest.raises(ValueError):
         extract_joint_angles(create_landmarks(np.zeros((20, 3))))
+
+
+def test_normalize_hand_rotation_handedness():
+    points = np.zeros((21, 3), dtype=np.float32)
+
+    points[9] = [0, 1, 0]
+    points[5] = [-1, 0, 0]
+    points[17] = [1, 0, 0]
+
+    landmarks = create_landmarks(points)
+
+    left_result = normalize_hand_rotation(
+        landmarks, "Left", 640, 480
+    ).reshape(21, 3)
+
+    right_result = normalize_hand_rotation(
+        landmarks, "Right", 640, 480
+    ).reshape(21, 3)
+
+    assert np.allclose(left_result[:, :2], right_result[:, :2])
+    assert np.allclose(left_result[:, 2], -right_result[:, 2])
+
+
+def test_normalize_hand_rotation_translation_invariance():
+    points = np.zeros((21, 3), dtype=np.float32)
+
+    points[9] = [0, 1, 0]
+    points[5] = [-1, 0, 0]
+    points[17] = [1, 0, 0]
+    points[4] = [0.5, 0.5, 0.2]
+
+    original = normalize_hand_rotation(
+        create_landmarks(points), "Left", 640, 480
+    )
+
+    translated_points = points + [10, 20, 30]
+
+    translated = normalize_hand_rotation(
+        create_landmarks(translated_points), "Left", 640, 480
+    )
+
+    assert np.allclose(original, translated, atol=1e-5)
+
+
+def test_normalize_hand_rotation_scale_invariance():
+    points = np.zeros((21, 3), dtype=np.float32)
+
+    points[9] = [0, 1, 0]
+    points[5] = [-1, 0, 0]
+    points[17] = [1, 0, 0]
+    points[4] = [0.5, 0.5, 0.2]
+
+    original = normalize_hand_rotation(
+        create_landmarks(points), "Left", 640, 480
+    )
+
+    scaled_points = points * 2.5
+
+    scaled = normalize_hand_rotation(
+        create_landmarks(scaled_points), "Left", 640, 480
+    )
+
+    assert np.allclose(original, scaled, atol=1e-5)
