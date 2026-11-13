@@ -7,12 +7,15 @@ from mediapipe.tasks.python import vision
 from src.visualization.hand_visualizer import HandVisualizer
 from src.vision.camera_manager import CameraManager
 from src.vision.hand_landmarker import HandLandmarker
+from src.features.gesture_stabilizer import GestureStabilizer
 
 class GestureApp():
     def __init__(self):
         self.camera = CameraManager(camera_index=1)
 
         self.recognizer = GestureRecognizer()
+
+        self.stabilizers = {}
 
         self.visualizer = HandVisualizer(
             vision.HandLandmarksConnections.HAND_CONNECTIONS
@@ -34,23 +37,52 @@ class GestureApp():
         # 3. 检测手部
         results = self.detector.detect(mp_image)
 
+        # 清理当前画面中已经消失的手部缓存
+        active_labels = set()
+
+        for hand in results.handedness:
+            label = hand[0].category_name
+
+            if label == "Left":
+                label = "Right"
+            else:
+                label = "Left"
+
+            active_labels.add(label)
+
+        for label in list(self.stabilizers.keys()):
+            if label not in active_labels:
+                del self.stabilizers[label]
+
         # 4. 识别并绘制
         if results.hand_landmarks:
             for i, landmarks in enumerate(results.hand_landmarks):
 
                 result = self.recognizer.predict(landmarks)
 
-                command = map_gesture_to_command(
-                    result["gesture"],
-                    result["confidence"]
-                )
-
+                # 获取手部标签
                 label = results.handedness[i][0].category_name
 
                 if label == "Left":
                     label = "Right"
                 else:
                     label = "Left"
+
+                # 获取原始指令
+                raw_command = map_gesture_to_command(
+                    result["gesture"],
+                    result["confidence"]
+                )
+
+                # 获取该只手专属的稳定器
+                if label not in self.stabilizers:
+                    self.stabilizers[label] = GestureStabilizer(
+                        window_size=5,
+                        min_count=3
+                    )
+
+                # 稳定指令
+                command = self.stabilizers[label].update(raw_command)
 
                 frame = self.visualizer.draw_hand(
                     frame=frame,

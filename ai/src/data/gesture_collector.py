@@ -36,7 +36,7 @@ HEADER = [
 def main():
     DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
     if not cap.isOpened():
         print("无法打开摄像头")
@@ -139,7 +139,8 @@ def main():
                             writer.writerow(row)
 
                         print(
-                            f"已保存：{GESTURE_LABELS[selected_id]}"
+                            f"已保存：{GESTURE_LABELS[selected_id]} | "
+                            f"手别：{handedness}"
                         )
 
                 cv2.imshow("Gesture Collector", frame)
